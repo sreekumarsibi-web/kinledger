@@ -9,6 +9,7 @@
     "userInterfaceStyle": "light",
     "description": "Collaborative budgeting for individuals, couples, and families.",
     "privacy": "unlisted",
+    "newArchEnabled": false,
     "assetBundlePatterns": [
       "**/*"
     ],
