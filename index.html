@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KinLedger Budget MVP</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="phone-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow" id="account-label">Couple account</p>
+          <h1>KinLedger</h1>
+        </div>
+        <button class="icon-btn" id="lock-toggle" type="button" title="Toggle PIN lock" aria-label="Toggle PIN lock">Lock</button>
+      </header>
+
+      <section class="profile-strip">
+        <button class="avatar is-active" data-login="maya" type="button">
+          <span>M</span>
+          Maya
+        </button>
+        <button class="avatar" data-login="omar" type="button">
+          <span>O</span>
+          Omar
+        </button>
+        <button class="link-pill" data-view="link" type="button">Link spouse</button>
+      </section>
+
+      <nav class="mobile-tabs" aria-label="Main screens">
+        <button class="nav-item is-active" data-view="dashboard" type="button">Home</button>
+        <button class="nav-item" data-view="expenses" type="button">Spend</button>
+        <button class="nav-item" data-view="tasks" type="button">Tasks</button>
+        <button class="nav-item" data-view="analytics" type="button">Stats</button>
+        <button class="nav-item" data-view="more" type="button">More</button>
+      </nav>
+
+      <section class="view" id="onboarding-view">
+        <div class="hero-panel">
+          <p class="eyebrow">Budget together</p>
+          <h2>One budget, private pockets, shared decisions.</h2>
+          <p>Track personal and shared spending, assign money tasks, watch renewals, and ask the assistant what changed.</p>
+          <button class="primary" data-view="auth" type="button">Start setup</button>
+        </div>
+      </section>
+
+      <section class="view" id="auth-view">
+        <div class="section-title">
+          <p class="eyebrow">Authentication</p>
+          <h2>Email or phone login</h2>
+        </div>
+        <form class="card form-grid" id="auth-form">
+          <label>Email or phone<input id="auth-contact" required placeholder="maya@example.com"></label>
+          <label>PIN<input id="auth-pin" required minlength="4" maxlength="6" inputmode="numeric" placeholder="1234"></label>
+          <label>Profile name<input id="auth-name" required placeholder="Maya"></label>
+          <label>Account type
+            <select id="auth-account-type">
+              <option value="single">Single</option>
+              <option value="couple" selected>Couple</option>
+              <option value="family">Family</option>
+            </select>
+          </label>
+          <button class="primary" type="submit">Create / login</button>
+        </form>
+      </section>
+
+      <section class="view" id="plan-view">
+        <div class="section-title">
+          <p class="eyebrow">Subscription plans</p>
+          <h2>Choose plan</h2>
+        </div>
+        <div class="billing-toggle" role="group" aria-label="Billing cycle">
+          <button class="is-active" data-billing="monthly" type="button">Monthly</button>
+          <button data-billing="yearly" type="button">Yearly</button>
+        </div>
+        <div class="plan-grid" id="plan-list"></div>
+      </section>
+
+      <section class="view" id="link-view">
+        <div class="section-title">
+          <p class="eyebrow">Linked accounts</p>
+          <h2>Spouse / family invite</h2>
+        </div>
+        <form class="card form-grid" id="link-form">
+          <label>Invite email or phone<input id="link-contact" required placeholder="omar@example.com"></label>
+          <label>Relationship
+            <select id="link-role">
+              <option value="spouse">Spouse</option>
+              <option value="parent">Parent</option>
+              <option value="child">Child</option>
+            </select>
+          </label>
+          <label>Permission
+            <select id="link-permission">
+              <option value="shared-only">Shared expenses only</option>
+              <option value="summary">Summary analytics</option>
+              <option value="full">Full household view</option>
+            </select>
+          </label>
+          <button class="primary" type="submit">Send link invite</button>
+        </form>
+        <div class="mini-list" id="linked-list"></div>
+      </section>
+
+      <section class="view is-visible" id="dashboard-view">
+        <div class="metric-grid">
+          <article class="metric"><span>Spent</span><strong id="metric-spent">$0</strong><small id="metric-spent-note">0% of income</small></article>
+          <article class="metric"><span>Shared</span><strong id="metric-shared">$0</strong><small>household spend</small></article>
+          <article class="metric"><span>Savings</span><strong id="metric-savings">0%</strong><small id="metric-savings-note">ratio</small></article>
+          <article class="metric"><span>Subs</span><strong id="metric-subs">$0</strong><small>monthly burn</small></article>
+        </div>
+        <section class="card">
+          <div class="card-head">
+            <div><p class="eyebrow">Today</p><h2 id="hello-title">Good evening</h2></div>
+            <button class="ghost" data-view="expenses" type="button">Quick add</button>
+          </div>
+          <div class="insight-list" id="dashboard-insights"></div>
+        </section>
+        <section class="card">
+          <div class="card-head"><div><p class="eyebrow">Reminders</p><h2>Smart nudges</h2></div><button class="ghost" data-view="reminders" type="button">Edit</button></div>
+          <div class="mini-list" id="reminder-list"></div>
+        </section>
+      </section>
+
+      <section class="view" id="expenses-view">
+        <div class="section-title">
+          <p class="eyebrow">Expense tracking</p>
+          <h2>Add expense</h2>
+        </div>
+        <form class="card form-grid" id="expense-form">
+          <label>Amount<input id="expense-amount" type="number" min="0" step="0.01" required placeholder="45.00"></label>
+          <label>Category<select id="expense-category"></select></label>
+          <label>Date<input id="expense-date" type="date"></label>
+          <label>Payment method<select id="expense-method"><option>Card</option><option>Cash</option><option>Bank</option><option>Wallet</option></select></label>
+          <label>Scope<select id="expense-scope"><option value="shared">Shared</option><option value="personal">Personal</option><option value="split">Split</option></select></label>
+          <label>Note<input id="expense-note" placeholder="Groceries, fuel, school fee"></label>
+          <button class="primary" type="submit">Add expense</button>
+        </form>
+        <div class="quick-row">
+          <button data-quick="Coffee|6|Food" type="button">Coffee $6</button>
+          <button data-quick="Taxi|18|Transport" type="button">Taxi $18</button>
+          <button data-quick="Groceries|72|Food" type="button">Groceries $72</button>
+        </div>
+        <div class="mini-list" id="expense-list"></div>
+      </section>
+
+      <section class="view" id="tasks-view">
+        <div class="section-title">
+          <p class="eyebrow">Couple tasks</p>
+          <h2>Assign money tasks</h2>
+        </div>
+        <form class="card form-grid" id="task-form">
+          <label>Task title<input id="task-title" required placeholder="Pay electricity bill"></label>
+          <label>Assign to<select id="task-assignee"><option value="omar">Omar</option><option value="maya">Maya</option></select></label>
+          <label>Due date<input id="task-due" type="date"></label>
+          <label>Priority<select id="task-priority"><option>High</option><option selected>Medium</option><option>Low</option></select></label>
+          <label class="wide">Notes<input id="task-notes" placeholder="Add account number or context"></label>
+          <button class="primary" type="submit">Assign task</button>
+        </form>
+        <div class="status-grid">
+          <article><strong id="pending-count">0</strong><span>Pending</span></article>
+          <article><strong id="completed-count">0</strong><span>Completed</span></article>
+          <article><strong id="missed-count">0</strong><span>Missed</span></article>
+        </div>
+        <div class="mini-list" id="task-list"></div>
+      </section>
+
+      <section class="view" id="analytics-view">
+        <div class="section-title">
+          <p class="eyebrow">Analytics</p>
+          <h2>Spending picture</h2>
+        </div>
+        <section class="card">
+          <div class="bars" id="category-bars"></div>
+        </section>
+        <section class="card two-col">
+          <div><p class="eyebrow">Shared vs personal</p><strong id="shared-ratio">0%</strong><small>shared this month</small></div>
+          <div><p class="eyebrow">Overspend risk</p><strong id="risk-score">Low</strong><small id="risk-note">Within trend</small></div>
+        </section>
+      </section>
+
+      <section class="view" id="subscriptions-view">
+        <div class="section-title">
+          <p class="eyebrow">Subscription tracking</p>
+          <h2>Recurring burn rate</h2>
+        </div>
+        <form class="card form-grid" id="subscription-form">
+          <label>Name<input id="sub-name" required placeholder="Netflix"></label>
+          <label>Cost<input id="sub-cost" type="number" min="0" step="0.01" required placeholder="15.99"></label>
+          <label>Cycle<select id="sub-cycle"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></label>
+          <label>Renewal<input id="sub-renewal" type="date"></label>
+          <button class="primary" type="submit">Add subscription</button>
+        </form>
+        <div class="mini-list" id="subscription-list"></div>
+      </section>
+
+      <section class="view" id="goals-view">
+        <div class="section-title">
+          <p class="eyebrow">Goal setting</p>
+          <h2>Build toward it</h2>
+        </div>
+        <form class="card form-grid" id="goal-form">
+          <label>Goal<select id="goal-name"><option>Emergency fund</option><option>House</option><option>Car</option><option>Vacation</option><option>Debt-free goal</option><option>Financial freedom goal</option></select></label>
+          <label>Target<input id="goal-target" type="number" min="1" required placeholder="10000"></label>
+          <label>Saved<input id="goal-saved" type="number" min="0" required placeholder="1250"></label>
+          <label>Target month<input id="goal-month" type="month"></label>
+          <button class="primary" type="submit">Add goal</button>
+        </form>
+        <div class="mini-list" id="goal-list"></div>
+      </section>
+
+      <section class="view" id="networth-view">
+        <div class="section-title">
+          <p class="eyebrow">Net worth</p>
+          <h2>Assets minus liabilities</h2>
+        </div>
+        <form class="card form-grid" id="networth-form">
+          <label>Name<input id="net-name" required placeholder="Bank savings"></label>
+          <label>Type<select id="net-type"><option value="asset">Asset</option><option value="liability">Liability</option></select></label>
+          <label>Category<select id="net-category"><option>Cash</option><option>Bank</option><option>Stocks</option><option>Crypto</option><option>Gold</option><option>Real estate</option><option>Loan</option><option>Credit card</option><option>Debt</option></select></label>
+          <label>Value<input id="net-value" type="number" min="0" required placeholder="5000"></label>
+          <button class="primary" type="submit">Add item</button>
+        </form>
+        <section class="card net-card"><span>Total net worth</span><strong id="net-worth-total">$0</strong></section>
+        <div class="mini-list" id="networth-list"></div>
+      </section>
+
+      <section class="view" id="assistant-view">
+        <div class="section-title">
+          <p class="eyebrow">AI financial assistant</p>
+          <h2>Ask the budget</h2>
+        </div>
+        <form class="card assistant-form" id="assistant-form">
+          <input id="assistant-question" placeholder="Can we afford a $900 trip this month?">
+          <button class="primary" type="submit">Ask</button>
+        </form>
+        <div class="assistant-answer" id="assistant-answer"></div>
+      </section>
+
+      <section class="view" id="reminders-view">
+        <div class="section-title">
+          <p class="eyebrow">Notifications</p>
+          <h2>Reminder rules</h2>
+        </div>
+        <div class="card toggle-list">
+          <label><input type="checkbox" data-reminder="expense" checked> Expense reminder</label>
+          <label><input type="checkbox" data-reminder="evening" checked> Evening reminder</label>
+          <label><input type="checkbox" data-reminder="missed" checked> Missed expense reminder</label>
+          <label><input type="checkbox" data-reminder="bills" checked> Bill and subscription renewal</label>
+          <label>Custom time<input id="custom-reminder-time" type="time" value="20:30"></label>
+        </div>
+      </section>
+
+      <section class="view" id="settings-view">
+        <div class="section-title">
+          <p class="eyebrow">Privacy & security</p>
+          <h2>Permissions and models</h2>
+        </div>
+        <div class="card toggle-list">
+          <label><input type="checkbox" checked> Biometric login</label>
+          <label><input type="checkbox" checked> PIN lock</label>
+          <label><input type="checkbox" checked> Hide private expenses from linked users</label>
+          <label><input type="checkbox"> Allow spouse to edit my personal expenses</label>
+        </div>
+        <section class="card schema-card">
+          <p class="eyebrow">Backend architecture</p>
+          <code>users, households, household_members, plans, subscriptions, expenses, expense_splits, tasks, goals, net_worth_items, notifications, reminder_rules, audit_logs</code>
+        </section>
+      </section>
+
+      <section class="view" id="more-view">
+        <div class="more-grid">
+          <button data-view="plan" type="button">Plans</button>
+          <button data-view="subscriptions" type="button">Subscriptions</button>
+          <button data-view="goals" type="button">Goals</button>
+          <button data-view="networth" type="button">Net Worth</button>
+          <button data-view="assistant" type="button">AI Assistant</button>
+          <button data-view="reminders" type="button">Reminders</button>
+          <button data-view="settings" type="button">Settings</button>
+          <button data-view="auth" type="button">Login</button>
+          <button data-view="onboarding" type="button">Onboarding</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

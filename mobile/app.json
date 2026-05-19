@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "KinLedger",
+    "slug": "kinledger-budget-mvp",
+    "scheme": "kinledger",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "description": "Collaborative budgeting for individuals, couples, and families.",
+    "privacy": "unlisted",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.kinledger.app",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "KinLedger uses Face ID to protect your budget, private expenses, and household data."
+      }
+    },
+    "android": {
+      "package": "com.kinledger.app",
+      "versionCode": 1,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#16372d"
+      }
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f4f5f0"
+    },
+    "notification": {
+      "color": "#176f55"
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
