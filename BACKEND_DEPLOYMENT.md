@@ -65,7 +65,7 @@ Do not put secrets into GitHub. Add them only in the hosting dashboard.
 
 ## After Deployment
 
-If your hosted URL is:
+Your current hosted URL is:
 
 ```text
 https://kinledger-backend.onrender.com

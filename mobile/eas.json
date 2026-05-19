@@ -22,7 +22,7 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.kinledger.app/api"
+        "EXPO_PUBLIC_API_URL": "https://kinledger-backend.onrender.com/api"
       },
       "android": {
         "buildType": "apk"
@@ -32,7 +32,7 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.kinledger.app/api"
+        "EXPO_PUBLIC_API_URL": "https://kinledger-backend.onrender.com/api"
       }
     }
   },
