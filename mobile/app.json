@@ -47,6 +47,12 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fd756559-93eb-4684-91cb-fd770acfcd08"
+      }
+    },
+    "owner": "sreewc"
   }
 }
