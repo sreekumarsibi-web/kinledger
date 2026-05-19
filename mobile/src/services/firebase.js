@@ -1,13 +1,18 @@
+import "react-native-get-random-values";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
   getAuth,
+  getReactNativePersistence,
+  initializeAuth,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut
 } from "firebase/auth";
+import { Platform } from "react-native";
 
 export const isFirebaseConfigured = Boolean(
   (process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyAO5B0aSFdftAZa0HcJRwzSdYNuIDeLoG0") &&
@@ -25,7 +30,21 @@ const firebaseConfig = {
 };
 
 export const firebaseApp = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
-export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null;
+export const firebaseAuth = firebaseApp ? createFirebaseAuth() : null;
+
+function createFirebaseAuth() {
+  if (Platform.OS === "web") {
+    return getAuth(firebaseApp);
+  }
+
+  try {
+    return initializeAuth(firebaseApp, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+  } catch (error) {
+    return getAuth(firebaseApp);
+  }
+}
 
 export function subscribeToAuth(callback) {
   if (!firebaseAuth) {

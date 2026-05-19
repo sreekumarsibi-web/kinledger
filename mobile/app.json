@@ -17,7 +17,8 @@
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
-        "NSFaceIDUsageDescription": "KinLedger uses Face ID to protect your budget, private expenses, and household data."
+        "NSFaceIDUsageDescription": "KinLedger uses Face ID to protect your budget, private expenses, and household data.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
