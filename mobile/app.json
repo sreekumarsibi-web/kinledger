@@ -44,7 +44,8 @@
       "color": "#176f55"
     },
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      "expo-asset"
     ],
     "web": {
       "bundler": "metro",
