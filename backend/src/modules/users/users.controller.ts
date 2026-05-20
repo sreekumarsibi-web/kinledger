@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { parseBody } from "../../common/http";
+import { FirebaseService } from "../auth/firebase.service";
 import { AuthenticatedRequest, FirebaseAuthGuard } from "../auth/firebase-auth.guard";
 import { UsersService } from "./users.service";
 
@@ -11,7 +12,7 @@ const syncUserSchema = z.object({
 @Controller("users")
 @UseGuards(FirebaseAuthGuard)
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(private readonly users: UsersService, private readonly firebase: FirebaseService) {}
 
   @Get("me")
   async me(@Req() request: AuthenticatedRequest) {
@@ -26,6 +27,8 @@ export class UsersController {
 
   @Delete("me")
   async deleteMe(@Req() request: AuthenticatedRequest) {
-    return this.users.deleteByFirebaseUid(request.user.firebaseUid);
+    const deleted = await this.users.deleteByFirebaseUid(request.user.firebaseUid);
+    await this.firebase.deleteUser(request.user.firebaseUid);
+    return deleted;
   }
 }

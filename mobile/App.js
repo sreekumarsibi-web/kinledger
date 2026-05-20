@@ -12,7 +12,7 @@ import {
 import { categories, initialState, plans } from "./src/data/seed";
 import { api } from "./src/services/api";
 import { categoryTotals, goalContribution, money, netWorth, totals } from "./src/services/budget";
-import { deleteCurrentFirebaseUser, isFirebaseConfigured, loginWithEmail, logout, registerWithEmail, subscribeToAuth } from "./src/services/firebase";
+import { isFirebaseConfigured, loginWithEmail, logout, registerWithEmail, subscribeToAuth } from "./src/services/firebase";
 import { getExpoPushToken } from "./src/services/push";
 
 const tabs = [
@@ -306,12 +306,12 @@ export default function App() {
     try {
       setSessionError("");
       setSessionStatus("Deleting account");
-      await api.deleteMe().catch(() => null);
-      await deleteCurrentFirebaseUser();
+      await api.deleteMe();
+      await logout();
       setDeleteConfirm("");
       setScreen("dashboard");
     } catch (error) {
-      setSessionError(`${error.message}. Firebase may require a fresh login before account deletion.`);
+      setSessionError(error.message);
       setSessionStatus("Delete failed");
     }
   }

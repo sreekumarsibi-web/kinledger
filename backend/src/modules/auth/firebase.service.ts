@@ -34,4 +34,12 @@ export class FirebaseService {
       name: decoded.name
     };
   }
+
+  async deleteUser(firebaseUid: string): Promise<void> {
+    if (!this.app) {
+      throw new UnauthorizedException("Firebase Admin is not configured");
+    }
+
+    await this.app.auth().deleteUser(firebaseUid);
+  }
 }
