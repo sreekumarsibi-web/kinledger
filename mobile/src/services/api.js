@@ -27,12 +27,22 @@ async function request(path, options = {}) {
     throw new Error(`Backend is not reachable at ${apiUrl}. Start the backend server and check mobile/.env EXPO_PUBLIC_API_URL.`);
   }
 
+  const responseText = await response.text();
+  const parseJson = () => {
+    if (!responseText) return null;
+    try {
+      return JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(`Backend returned an invalid response for ${path}.`);
+    }
+  };
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
+    const error = parseJson() || { message: response.statusText };
     throw new Error(error.message || `API request failed with ${response.status}`);
   }
 
-  return response.status === 204 ? null : response.json();
+  return parseJson();
 }
 
 export const api = {
