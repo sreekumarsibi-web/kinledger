@@ -125,7 +125,7 @@ export default function App() {
   const headerName = authUser ? (backendUser?.display_name || authUser.email || "Signed in") : activeUser.name;
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && window.location?.pathname) {
       const match = window.location.pathname.match(/^\/invite\/([^/]+)$/);
       if (match?.[1]) {
         setIncomingInviteToken(match[1]);
