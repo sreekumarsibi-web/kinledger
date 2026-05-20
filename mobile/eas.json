@@ -7,7 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development",
       "env": {
         "EXPO_PUBLIC_API_URL": "http://127.0.0.1:3000/api"
       },
@@ -20,7 +19,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://kinledger-backend.onrender.com/api"
       },
@@ -30,7 +28,6 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://kinledger-backend.onrender.com/api"
       }

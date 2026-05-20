@@ -55,12 +55,6 @@
         "projectId": "fd756559-93eb-4684-91cb-fd770acfcd08"
       }
     },
-    "owner": "sreewc",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/fd756559-93eb-4684-91cb-fd770acfcd08"
-    }
+    "owner": "sreewc"
   }
 }
