@@ -321,15 +321,21 @@ export default function App() {
     if (authUser && activeHouseholdId) {
       try {
         setSessionError("");
-        await api.createIncome(activeHouseholdId, {
+        const createdIncome = await api.createIncome(activeHouseholdId, {
           source: incomeDraft.source,
           amountCents: toCents(incomeDraft.amount),
           receivedAt: incomeDraft.receivedAt || todayDate(),
           note: incomeDraft.note || undefined,
           isRecurring: incomeDraft.isRecurring
         });
-        await refreshHouseholdData(activeHouseholdId);
+        if (createdIncome) {
+          setLiveIncome((current) => [{
+            ...createdIncome,
+            created_by_name: backendUser?.display_name || authUser.email || "You"
+          }, ...current]);
+        }
         setIncomeDraft({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true });
+        refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
       } catch (error) {
         setSessionError(error.message);
       }
@@ -341,7 +347,7 @@ export default function App() {
     if (authUser && activeHouseholdId) {
       try {
         setSessionError("");
-        await api.createExpense(activeHouseholdId, {
+        const createdExpense = await api.createExpense(activeHouseholdId, {
           amountCents: toCents(expenseDraft.amount),
           category: expenseDraft.category,
           spentAt: todayDate(),
@@ -350,8 +356,14 @@ export default function App() {
           scope: expenseDraft.scope,
           isPrivate: expenseDraft.isPrivate
         });
-        await refreshHouseholdData(activeHouseholdId);
+        if (createdExpense) {
+          setLiveExpenses((current) => [{
+            ...createdExpense,
+            created_by_name: backendUser?.display_name || authUser.email || "You"
+          }, ...current]);
+        }
         setExpenseDraft({ amount: "", category: "Food", scope: "shared", note: "", method: "Card", isPrivate: false });
+        refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
       } catch (error) {
         setSessionError(error.message);
       }
