@@ -40,6 +40,12 @@ export class FirebaseService {
       throw new UnauthorizedException("Firebase Admin is not configured");
     }
 
-    await this.app.auth().deleteUser(firebaseUid);
+    try {
+      await this.app.auth().deleteUser(firebaseUid);
+    } catch (error) {
+      if ((error as { code?: string }).code !== "auth/user-not-found") {
+        throw error;
+      }
+    }
   }
 }

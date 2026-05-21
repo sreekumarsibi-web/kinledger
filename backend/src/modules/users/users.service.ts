@@ -50,11 +50,20 @@ export class UsersService {
       if (!current) return null;
 
       await db.query("delete from households where created_by = $1", [current.id]);
+      await db.query("delete from expense_splits where user_id = $1", [current.id]);
+      await db.query("delete from expenses where created_by = $1", [current.id]);
+      await db.query("delete from income_entries where created_by = $1", [current.id]);
+      await db.query("delete from recurring_subscriptions where created_by = $1", [current.id]);
+      await db.query("delete from tasks where created_by = $1 or assignee_id = $1", [current.id]);
+      await db.query("delete from goals where created_by = $1", [current.id]);
+      await db.query("delete from net_worth_items where created_by = $1", [current.id]);
       await db.query("delete from household_members where user_id = $1", [current.id]);
       await db.query("delete from account_links where invited_by = $1 or accepted_user_id = $1", [current.id]);
       await db.query("delete from notifications where user_id = $1", [current.id]);
       await db.query("delete from reminder_rules where user_id = $1", [current.id]);
+      await db.query("delete from device_tokens where user_id = $1", [current.id]);
       await db.query("delete from ai_assistant_messages where user_id = $1", [current.id]);
+      await db.query("delete from audit_logs where actor_user_id = $1", [current.id]);
 
       const deleted = await db.query<DbUser>(
         "delete from users where id = $1 returning id, firebase_uid, display_name, email, phone",
