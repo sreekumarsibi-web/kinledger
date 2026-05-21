@@ -45,6 +45,7 @@ APP_PUBLIC_URL=https://your-public-app-domain.example
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=your-resend-key
 EMAIL_FROM=KinLedger <invite@yourdomain.com>
+NOTIFICATION_WORKER_ENABLED=true
 
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=

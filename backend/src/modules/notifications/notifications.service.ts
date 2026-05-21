@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { AuthUser } from "../../common/http";
 import { DatabaseService } from "../database/database.service";
 import { HouseholdsService } from "../households/households.service";
@@ -18,11 +19,27 @@ type DeviceTokenInput = {
 };
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(NotificationsService.name);
+  private scheduler?: NodeJS.Timeout;
+
   constructor(
     private readonly db: DatabaseService,
-    private readonly households: HouseholdsService
+    private readonly households: HouseholdsService,
+    private readonly config: ConfigService
   ) {}
+
+  onModuleInit() {
+    if (this.config.get<string>("NOTIFICATION_WORKER_ENABLED") === "false") return;
+    this.scheduler = setInterval(() => {
+      this.processDueReminders().catch((error) => this.logger.error(error));
+    }, 60_000);
+    this.processDueReminders().catch((error) => this.logger.error(error));
+  }
+
+  onModuleDestroy() {
+    if (this.scheduler) clearInterval(this.scheduler);
+  }
 
   async list(auth: AuthUser, householdId: string) {
     const { user } = await this.households.assertMember(auth, householdId);
@@ -116,6 +133,97 @@ export class NotificationsService {
       [notificationId, householdId, user.id]
     );
     return result.rows[0] || null;
+  }
+
+  async processDueReminders() {
+    const dueRules = await this.db.query<{
+      id: string;
+      household_id: string;
+      user_id: string;
+      rule_type: ReminderRuleInput["ruleType"];
+      local_time: string;
+    }>(
+      `
+        select id, household_id, user_id, rule_type, local_time::text
+        from reminder_rules
+        where enabled = true
+          and local_time is not null
+          and date_trunc('minute', local_time::time) = date_trunc('minute', now()::time)
+          and not exists (
+            select 1
+            from notifications n
+            where n.household_id = reminder_rules.household_id
+              and n.user_id = reminder_rules.user_id
+              and n.type = reminder_rules.rule_type
+              and n.created_at::date = now()::date
+          )
+        limit 100
+      `
+    );
+
+    for (const rule of dueRules.rows) {
+      await this.createAndSendReminder(rule.household_id, rule.user_id, rule.rule_type);
+    }
+  }
+
+  private async createAndSendReminder(householdId: string, userId: string, ruleType: ReminderRuleInput["ruleType"]) {
+    const copy = this.reminderCopy(ruleType);
+    const notification = await this.db.query(
+      `
+        insert into notifications (household_id, user_id, type, title, body, deep_link, scheduled_for, sent_at)
+        values ($1, $2, $3, $4, $5, $6, now(), now())
+        returning *
+      `,
+      [householdId, userId, ruleType, copy.title, copy.body, copy.deepLink]
+    );
+    const tokens = await this.db.query<{ token: string; provider: string }>(
+      "select token, provider from device_tokens where user_id = $1 and is_active = true order by last_seen_at desc limit 5",
+      [userId]
+    );
+
+    for (const row of tokens.rows) {
+      if (row.provider === "expo") {
+        await this.sendExpo(row.token, copy.title, copy.body);
+      }
+    }
+
+    return notification.rows[0];
+  }
+
+  private reminderCopy(ruleType: ReminderRuleInput["ruleType"]) {
+    const copy: Record<ReminderRuleInput["ruleType"], { title: string; body: string; deepLink: string }> = {
+      expense_reminder: {
+        title: "Add today's expenses",
+        body: "Take a minute to log anything you spent today.",
+        deepLink: "kinledger://expenses"
+      },
+      bill_reminder: {
+        title: "Bill reminder",
+        body: "Check upcoming bills and mark payments before they are missed.",
+        deepLink: "kinledger://subscriptions"
+      },
+      subscription_renewal: {
+        title: "Subscription renewal",
+        body: "Review upcoming renewals and cancel anything you no longer use.",
+        deepLink: "kinledger://subscriptions"
+      },
+      goal_reminder: {
+        title: "Goal contribution",
+        body: "Review your goals and add this month's contribution.",
+        deepLink: "kinledger://goals"
+      },
+      assigned_task: {
+        title: "Money task reminder",
+        body: "Check your pending household finance tasks.",
+        deepLink: "kinledger://tasks"
+      },
+      overspending_alert: {
+        title: "Spending check",
+        body: "Review your latest spending before the budget drifts.",
+        deepLink: "kinledger://analytics"
+      }
+    };
+    return copy[ruleType];
   }
 
   private async sendExpo(token: string, title: string, body: string) {
