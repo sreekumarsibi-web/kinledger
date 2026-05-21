@@ -93,6 +93,7 @@ export default function App() {
   const [liveGoals, setLiveGoals] = useState([]);
   const [liveNetWorth, setLiveNetWorth] = useState({ totalCents: 0, items: [] });
   const [liveNotifications, setLiveNotifications] = useState([]);
+  const [liveReminderRules, setLiveReminderRules] = useState([]);
   const [livePlans, setLivePlans] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [planBillingCycle, setPlanBillingCycle] = useState("monthly");
@@ -153,6 +154,7 @@ export default function App() {
         setLiveGoals([]);
         setLiveNetWorth({ totalCents: 0, items: [] });
         setLiveNotifications([]);
+        setLiveReminderRules([]);
         setCurrentPlan(null);
         setPlanStatus("");
         setSessionStatus(isFirebaseConfigured ? "Signed out" : "Demo mode");
@@ -211,14 +213,15 @@ export default function App() {
   async function refreshHouseholdData(householdId = activeHouseholdId) {
     if (!householdId) return;
 
-    const [incomeRows, expenseRows, taskRows, subscriptionRows, goalRows, netWorthRows, notificationRows] = await Promise.all([
+    const [incomeRows, expenseRows, taskRows, subscriptionRows, goalRows, netWorthRows, notificationRows, reminderRuleRows] = await Promise.all([
       api.income(householdId),
       api.expenses(householdId),
       api.tasks(householdId),
       api.subscriptions(householdId),
       api.goals(householdId),
       api.netWorth(householdId),
-      api.notifications(householdId)
+      api.notifications(householdId),
+      api.reminderRules(householdId)
     ]);
     const planRow = await api.currentPlan(householdId);
 
@@ -229,6 +232,7 @@ export default function App() {
     setLiveGoals(goalRows || []);
     setLiveNetWorth(netWorthRows || { totalCents: 0, items: [] });
     setLiveNotifications(notificationRows || []);
+    setLiveReminderRules(reminderRuleRows || []);
     setCurrentPlan(planRow);
     if (planRow?.billing_cycle) setPlanBillingCycle(planRow.billing_cycle);
   }
@@ -614,7 +618,42 @@ export default function App() {
         ruleType: reminderRuleMap[ruleType] || ruleType,
         enabled,
         localTime
+      }).then((rule) => {
+        if (rule) {
+          setLiveReminderRules((current) => [rule, ...current.filter((item) => item.rule_type !== rule.rule_type)]);
+        }
       });
+    } catch (error) {
+      setSessionError(error.message);
+    }
+  }
+
+  async function updateReminderTime(localTime) {
+    setState((current) => ({ ...current, reminders: { ...current.reminders, customTime: localTime } }));
+    if (!/^\d{2}:\d{2}$/.test(localTime)) return;
+    if (!authUser || !activeHouseholdId) return;
+
+    const activeRules = Object.entries(state.reminders)
+      .filter(([key, value]) => key !== "customTime" && Boolean(value))
+      .map(([key]) => key);
+
+    try {
+      setSessionError("");
+      const saved = [];
+      for (const ruleType of activeRules) {
+        const rule = await api.saveReminderRule(activeHouseholdId, {
+          ruleType: reminderRuleMap[ruleType] || ruleType,
+          enabled: true,
+          localTime
+        });
+        if (rule) saved.push(rule);
+      }
+      if (saved.length) {
+        setLiveReminderRules((current) => [
+          ...saved,
+          ...current.filter((item) => !saved.some((rule) => rule.rule_type === item.rule_type))
+        ]);
+      }
     } catch (error) {
       setSessionError(error.message);
     }
@@ -652,9 +691,21 @@ export default function App() {
       setPushStatus("Sending test push");
       const result = await api.sendTestNotification(activeHouseholdId);
       await refreshHouseholdData(activeHouseholdId);
-      setPushStatus(result.tokenCount ? "Test push sent" : "No registered push token yet");
+      setPushStatus(result.tokenCount ? `Test push sent to ${result.tokenCount} device${result.tokenCount === 1 ? "" : "s"}` : "No registered push token yet");
     } catch (error) {
       setPushStatus(error.message);
+    }
+  }
+
+  async function markNotificationRead(notificationId) {
+    if (!authUser || !activeHouseholdId) return;
+    try {
+      const notification = await api.markNotificationRead(activeHouseholdId, notificationId);
+      if (notification) {
+        setLiveNotifications((current) => current.map((item) => item.id === notificationId ? notification : item));
+      }
+    } catch (error) {
+      setSessionError(error.message);
     }
   }
 
@@ -743,7 +794,7 @@ export default function App() {
     if (screen === "goals") return <Goals state={state} authUser={authUser} liveGoals={liveGoals} draft={goalDraft} setDraft={setGoalDraft} addGoal={addGoal} sessionError={sessionError} />;
     if (screen === "networth") return <NetWorth state={state} authUser={authUser} liveNetWorth={liveNetWorth} draft={netWorthDraft} setDraft={setNetWorthDraft} addNetWorthItem={addNetWorthItem} sessionError={sessionError} />;
     if (screen === "assistant") return <Assistant state={state} summary={summary} authUser={authUser} activeHouseholdId={activeHouseholdId} question={assistantQuestion} setQuestion={setAssistantQuestion} answer={assistantAnswer} status={assistantStatus} askAssistant={askAssistant} />;
-    if (screen === "reminders") return <Reminders state={state} toggleReminder={toggleReminder} registerPushDevice={registerPushDevice} sendTestPush={sendTestPush} pushStatus={pushStatus} pushTokenPreview={pushTokenPreview} sessionError={sessionError} />;
+    if (screen === "reminders") return <Reminders state={state} liveNotifications={liveNotifications} liveReminderRules={liveReminderRules} toggleReminder={toggleReminder} updateReminderTime={updateReminderTime} registerPushDevice={registerPushDevice} sendTestPush={sendTestPush} markNotificationRead={markNotificationRead} pushStatus={pushStatus} pushTokenPreview={pushTokenPreview} sessionError={sessionError} />;
     if (screen === "settings") return <Settings settingsState={settingsState} setSettingsState={setSettingsState} />;
     if (screen === "account") return <AccountScreen authUser={authUser} backendUser={backendUser} households={households} activeHouseholdId={activeHouseholdId} householdMembers={householdMembers} householdInvites={householdInvites} lastInvite={lastInvite} householdDraft={householdDraft} setHouseholdDraft={setHouseholdDraft} createBackendHousehold={createBackendHousehold} inviteDraft={inviteDraft} setInviteDraft={setInviteDraft} sendInvite={sendInvite} sessionStatus={sessionStatus} sessionError={sessionError} signOutUser={signOutUser} deleteConfirm={deleteConfirm} setDeleteConfirm={setDeleteConfirm} deleteAccount={deleteAccount} />;
     if (screen === "plans") return <Plans state={state} authUser={authUser} livePlans={livePlans} currentPlan={currentPlan} billingCycle={planBillingCycle} setBillingCycle={setPlanBillingCycle} choosePlan={choosePlan} selectLivePlan={selectLivePlan} startStripeCheckout={startStripeCheckout} planStatus={planStatus} />;
@@ -1060,7 +1111,9 @@ function Assistant({ state, summary, authUser, activeHouseholdId, question, setQ
   );
 }
 
-function Reminders({ state, toggleReminder, registerPushDevice, sendTestPush, pushStatus, pushTokenPreview, sessionError }) {
+function Reminders({ state, liveNotifications, liveReminderRules, toggleReminder, updateReminderTime, registerPushDevice, sendTestPush, markNotificationRead, pushStatus, pushTokenPreview, sessionError }) {
+  const enabledRules = liveReminderRules.filter((rule) => rule.enabled);
+  const unreadCount = liveNotifications.filter((notification) => !notification.read_at).length;
   return (
     <View>
       <SectionTitle eyebrow="Notifications" title="Reminder rules" />
@@ -1075,6 +1128,10 @@ function Reminders({ state, toggleReminder, registerPushDevice, sendTestPush, pu
         </TouchableOpacity>
         {pushStatus ? <Text style={pushStatus.includes("sent") || pushStatus.includes("registered") ? styles.muted : styles.errorText}>{pushStatus}</Text> : null}
       </Card>
+      <Card>
+        <Field label="Reminder time" value={state.reminders.customTime} onChangeText={updateReminderTime} />
+        <Text style={styles.listDetail}>{enabledRules.length ? `${enabledRules.length} live reminder rule${enabledRules.length === 1 ? "" : "s"} saved.` : "No live reminder rules saved yet."}</Text>
+      </Card>
       <ToggleRow title="Likely-free expense reminder" detail={`Custom time ${state.reminders.customTime}`} value={Boolean(state.reminders.expense)} onChange={(enabled) => toggleReminder("expense", enabled, state.reminders.customTime)} />
       <ToggleRow title="Evening reminder" detail="Daily expense nudge" value={Boolean(state.reminders.evening)} onChange={(enabled) => toggleReminder("evening", enabled, state.reminders.customTime)} />
       <ToggleRow title="Missed expense reminder" detail="Follow up after skipped days" value={Boolean(state.reminders.missed)} onChange={(enabled) => toggleReminder("missed", enabled, state.reminders.customTime)} />
@@ -1083,6 +1140,21 @@ function Reminders({ state, toggleReminder, registerPushDevice, sendTestPush, pu
       <ToggleRow title="Goal reminder" detail="Prompt monthly contributions" value={Boolean(state.reminders.goal ?? true)} onChange={(enabled) => toggleReminder("goal", enabled, state.reminders.customTime)} />
       <ToggleRow title="Assigned task reminder" detail="Notify spouse or family assignee" value={Boolean(state.reminders.assignedTask ?? true)} onChange={(enabled) => toggleReminder("assignedTask", enabled, state.reminders.customTime)} />
       <ToggleRow title="Overspending alert" detail="Warn when category spend spikes" value={Boolean(state.reminders.overspending ?? true)} onChange={(enabled) => toggleReminder("overspending", enabled, state.reminders.customTime)} />
+      <SectionTitle eyebrow={`${unreadCount} unread`} title="Notification history" />
+      {liveNotifications.length ? liveNotifications.map((notification) => (
+        <View key={notification.id} style={styles.listRow}>
+          <View style={styles.listBody}>
+            <Text style={styles.listTitle}>{notification.title}</Text>
+            <Text style={styles.listDetail}>{notification.body}</Text>
+            <Text style={styles.listDetail}>{notification.sent_at || notification.scheduled_for || notification.created_at}</Text>
+          </View>
+          {!notification.read_at ? (
+            <TouchableOpacity style={styles.rowActionButton} onPress={() => markNotificationRead(notification.id)}>
+              <Text style={styles.rowActionText}>Read</Text>
+            </TouchableOpacity>
+          ) : <Text style={styles.side}>Read</Text>}
+        </View>
+      )) : <InlineNotice title="No notifications yet" body="Send a test notification after registering this device to confirm push delivery." />}
       {sessionError ? <Text style={styles.errorText}>{sessionError}</Text> : null}
     </View>
   );

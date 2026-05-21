@@ -33,17 +33,32 @@ export class NotificationsService {
     return result.rows;
   }
 
-  async upsertRule(auth: AuthUser, householdId: string, input: ReminderRuleInput) {
+  async listRules(auth: AuthUser, householdId: string) {
     const { user } = await this.households.assertMember(auth, householdId);
     const result = await this.db.query(
-      `
-        insert into reminder_rules (household_id, user_id, rule_type, enabled, local_time, likely_free_window)
-        values ($1, $2, $3, $4, $5, $6)
-        returning *
-      `,
-      [householdId, user.id, input.ruleType, input.enabled, input.localTime || null, input.likelyFreeWindow || null]
+      "select * from reminder_rules where household_id = $1 and user_id = $2 order by created_at desc",
+      [householdId, user.id]
     );
-    return result.rows[0];
+    return result.rows;
+  }
+
+  async upsertRule(auth: AuthUser, householdId: string, input: ReminderRuleInput) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    return this.db.transaction(async (db) => {
+      await db.query(
+        "delete from reminder_rules where household_id = $1 and user_id = $2 and rule_type = $3",
+        [householdId, user.id, input.ruleType]
+      );
+      const result = await db.query(
+        `
+          insert into reminder_rules (household_id, user_id, rule_type, enabled, local_time, likely_free_window)
+          values ($1, $2, $3, $4, $5, $6)
+          returning *
+        `,
+        [householdId, user.id, input.ruleType, input.enabled, input.localTime || null, input.likelyFreeWindow || null]
+      );
+      return result.rows[0];
+    });
   }
 
   async registerDevice(auth: AuthUser, householdId: string, input: DeviceTokenInput) {
@@ -92,6 +107,15 @@ export class NotificationsService {
     }
 
     return { notification: notification.rows[0], deliveries, tokenCount: tokens.rowCount };
+  }
+
+  async markRead(auth: AuthUser, householdId: string, notificationId: string) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      "update notifications set read_at = now() where id = $1 and household_id = $2 and user_id = $3 returning *",
+      [notificationId, householdId, user.id]
+    );
+    return result.rows[0] || null;
   }
 
   private async sendExpo(token: string, title: string, body: string) {

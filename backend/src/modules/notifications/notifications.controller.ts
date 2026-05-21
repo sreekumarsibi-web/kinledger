@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { parseBody, uuidSchema } from "../../common/http";
 import { AuthenticatedRequest, FirebaseAuthGuard } from "../auth/firebase-auth.guard";
@@ -28,6 +28,11 @@ export class NotificationsController {
     return this.notifications.list(request.user, parseBody(uuidSchema, householdId));
   }
 
+  @Get("rules")
+  listRules(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string) {
+    return this.notifications.listRules(request.user, parseBody(uuidSchema, householdId));
+  }
+
   @Post("rules")
   upsertRule(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Body() body: unknown) {
     return this.notifications.upsertRule(request.user, parseBody(uuidSchema, householdId), parseBody(reminderRuleSchema, body));
@@ -41,5 +46,10 @@ export class NotificationsController {
   @Post("test")
   sendTest(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string) {
     return this.notifications.sendTest(request.user, parseBody(uuidSchema, householdId));
+  }
+
+  @Patch(":notificationId/read")
+  markRead(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("notificationId") notificationId: string) {
+    return this.notifications.markRead(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, notificationId));
   }
 }

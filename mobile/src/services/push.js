@@ -2,6 +2,15 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false
+  })
+});
+
 export async function getExpoPushToken() {
   if (Platform.OS === "web") {
     throw new Error("Push tokens require the native Expo app on iOS or Android. Use web to configure rules, then test push on a device build.");
