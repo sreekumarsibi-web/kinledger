@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { parseBody, uuidSchema } from "../../common/http";
 import { AuthenticatedRequest, FirebaseAuthGuard } from "../auth/firebase-auth.guard";
@@ -12,6 +12,7 @@ const createIncomeSchema = z.object({
   note: z.string().max(500).optional(),
   isRecurring: z.boolean().optional()
 });
+const updateIncomeSchema = createIncomeSchema.partial();
 
 @Controller("households/:householdId/income")
 @UseGuards(FirebaseAuthGuard)
@@ -26,5 +27,15 @@ export class IncomeController {
   @Post()
   create(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Body() body: unknown) {
     return this.income.create(request.user, parseBody(uuidSchema, householdId), parseBody(createIncomeSchema, body));
+  }
+
+  @Patch(":incomeId")
+  update(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("incomeId") incomeId: string, @Body() body: unknown) {
+    return this.income.update(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, incomeId), parseBody(updateIncomeSchema, body));
+  }
+
+  @Delete(":incomeId")
+  delete(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("incomeId") incomeId: string) {
+    return this.income.delete(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, incomeId));
   }
 }

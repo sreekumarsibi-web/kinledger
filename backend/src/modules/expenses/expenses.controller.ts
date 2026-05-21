@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { parseBody, uuidSchema } from "../../common/http";
 import { AuthenticatedRequest, FirebaseAuthGuard } from "../auth/firebase-auth.guard";
@@ -18,6 +18,7 @@ const createExpenseSchema = z.object({
     shareCents: z.number().int().nonnegative()
   })).optional()
 });
+const updateExpenseSchema = createExpenseSchema.partial();
 
 @Controller("households/:householdId/expenses")
 @UseGuards(FirebaseAuthGuard)
@@ -32,5 +33,15 @@ export class ExpensesController {
   @Post()
   create(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Body() body: unknown) {
     return this.expenses.create(request.user, parseBody(uuidSchema, householdId), parseBody(createExpenseSchema, body));
+  }
+
+  @Patch(":expenseId")
+  update(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("expenseId") expenseId: string, @Body() body: unknown) {
+    return this.expenses.update(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, expenseId), parseBody(updateExpenseSchema, body));
+  }
+
+  @Delete(":expenseId")
+  delete(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("expenseId") expenseId: string) {
+    return this.expenses.delete(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, expenseId));
   }
 }

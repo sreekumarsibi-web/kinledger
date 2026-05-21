@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuthUser } from "../../common/http";
 import { DatabaseService } from "../database/database.service";
 import { HouseholdsService } from "../households/households.service";
@@ -11,6 +11,8 @@ export type CreateIncomeInput = {
   note?: string;
   isRecurring?: boolean;
 };
+
+export type UpdateIncomeInput = Partial<CreateIncomeInput>;
 
 @Injectable()
 export class IncomeService {
@@ -54,5 +56,45 @@ export class IncomeService {
       ]
     );
     return result.rows[0];
+  }
+
+  async update(auth: AuthUser, householdId: string, incomeId: string, input: UpdateIncomeInput) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      `
+        update income_entries
+        set source = coalesce($4, source),
+            amount_cents = coalesce($5, amount_cents),
+            currency = coalesce($6, currency),
+            received_at = coalesce($7, received_at),
+            note = coalesce($8, note),
+            is_recurring = coalesce($9, is_recurring)
+        where id = $1 and household_id = $2 and created_by = $3
+        returning *
+      `,
+      [
+        incomeId,
+        householdId,
+        user.id,
+        input.source,
+        input.amountCents,
+        input.currency,
+        input.receivedAt,
+        input.note,
+        input.isRecurring
+      ]
+    );
+    if (!result.rows[0]) throw new NotFoundException("Income entry not found");
+    return result.rows[0];
+  }
+
+  async delete(auth: AuthUser, householdId: string, incomeId: string) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      "delete from income_entries where id = $1 and household_id = $2 and created_by = $3 returning id",
+      [incomeId, householdId, user.id]
+    );
+    if (!result.rows[0]) throw new NotFoundException("Income entry not found");
+    return { id: result.rows[0].id };
   }
 }

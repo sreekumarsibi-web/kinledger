@@ -107,7 +107,9 @@ export default function App() {
   const [incomingInviteToken, setIncomingInviteToken] = useState("");
   const [inviteAcceptStatus, setInviteAcceptStatus] = useState("");
   const [incomeDraft, setIncomeDraft] = useState({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true });
+  const [editingIncomeId, setEditingIncomeId] = useState(null);
   const [expenseDraft, setExpenseDraft] = useState({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [taskDraft, setTaskDraft] = useState({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" });
   const [subscriptionDraft, setSubscriptionDraft] = useState({ name: "", cost: "", billingCycle: "monthly", renewalDate: "2026-06-01" });
   const [goalDraft, setGoalDraft] = useState({ name: "Emergency fund", target: "", saved: "", targetMonth: "2026-12" });
@@ -321,19 +323,23 @@ export default function App() {
     if (authUser && activeHouseholdId) {
       try {
         setSessionError("");
-        const createdIncome = await api.createIncome(activeHouseholdId, {
+        const payload = {
           source: incomeDraft.source,
           amountCents: toCents(incomeDraft.amount),
           receivedAt: incomeDraft.receivedAt || todayDate(),
           note: incomeDraft.note || undefined,
           isRecurring: incomeDraft.isRecurring
-        });
+        };
+        const createdIncome = editingIncomeId
+          ? await api.updateIncome(activeHouseholdId, editingIncomeId, payload)
+          : await api.createIncome(activeHouseholdId, payload);
         if (createdIncome) {
-          setLiveIncome((current) => [{
-            ...createdIncome,
-            created_by_name: backendUser?.display_name || authUser.email || "You"
-          }, ...current]);
+          setLiveIncome((current) => {
+            const row = { ...createdIncome, created_by_name: createdIncome.created_by_name || backendUser?.display_name || authUser.email || "You" };
+            return editingIncomeId ? current.map((item) => item.id === editingIncomeId ? row : item) : [row, ...current];
+          });
         }
+        setEditingIncomeId(null);
         setIncomeDraft({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true });
         refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
       } catch (error) {
@@ -347,7 +353,7 @@ export default function App() {
     if (authUser && activeHouseholdId) {
       try {
         setSessionError("");
-        const createdExpense = await api.createExpense(activeHouseholdId, {
+        const payload = {
           amountCents: toCents(expenseDraft.amount),
           category: expenseDraft.category,
           spentAt: expenseDraft.spentAt || todayDate(),
@@ -355,13 +361,17 @@ export default function App() {
           paymentMethod: expenseDraft.method,
           scope: expenseDraft.scope,
           isPrivate: expenseDraft.isPrivate
-        });
+        };
+        const createdExpense = editingExpenseId
+          ? await api.updateExpense(activeHouseholdId, editingExpenseId, payload)
+          : await api.createExpense(activeHouseholdId, payload);
         if (createdExpense) {
-          setLiveExpenses((current) => [{
-            ...createdExpense,
-            created_by_name: backendUser?.display_name || authUser.email || "You"
-          }, ...current]);
+          setLiveExpenses((current) => {
+            const row = { ...createdExpense, created_by_name: createdExpense.created_by_name || backendUser?.display_name || authUser.email || "You" };
+            return editingExpenseId ? current.map((item) => item.id === editingExpenseId ? row : item) : [row, ...current];
+          });
         }
+        setEditingExpenseId(null);
         setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
         refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
       } catch (error) {
@@ -385,6 +395,62 @@ export default function App() {
       }, ...current.expenses]
     }));
     setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
+  }
+
+  async function deleteIncome(incomeId) {
+    if (!authUser || !activeHouseholdId) return;
+    try {
+      setSessionError("");
+      await api.deleteIncome(activeHouseholdId, incomeId);
+      setLiveIncome((current) => current.filter((item) => item.id !== incomeId));
+      if (editingIncomeId === incomeId) {
+        setEditingIncomeId(null);
+        setIncomeDraft({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true });
+      }
+      refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
+    } catch (error) {
+      setSessionError(error.message);
+    }
+  }
+
+  function editIncome(item) {
+    setEditingIncomeId(item.id);
+    setIncomeDraft({
+      source: item.source || "Income",
+      amount: String(Number(item.amount_cents || 0) / 100),
+      receivedAt: item.received_at || todayDate(),
+      note: item.note || "",
+      isRecurring: Boolean(item.is_recurring)
+    });
+  }
+
+  async function deleteExpense(expenseId) {
+    if (!authUser || !activeHouseholdId) return;
+    try {
+      setSessionError("");
+      await api.deleteExpense(activeHouseholdId, expenseId);
+      setLiveExpenses((current) => current.filter((item) => item.id !== expenseId));
+      if (editingExpenseId === expenseId) {
+        setEditingExpenseId(null);
+        setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
+      }
+      refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
+    } catch (error) {
+      setSessionError(error.message);
+    }
+  }
+
+  function editExpense(item) {
+    setEditingExpenseId(item.id);
+    setExpenseDraft({
+      amount: String(Number(item.amount_cents || 0) / 100),
+      category: item.category || "Food",
+      spentAt: item.spent_at || todayDate(),
+      scope: item.scope || "shared",
+      note: item.note || "",
+      method: item.payment_method || "Card",
+      isPrivate: Boolean(item.is_private)
+    });
   }
 
   async function addTask() {
@@ -631,8 +697,8 @@ export default function App() {
 
   function renderScreen() {
     if (screen === "dashboard") return <Dashboard state={state} summary={authUser ? liveSummary : summary} authUser={authUser} liveExpenses={liveExpenses} liveSubscriptions={liveSubscriptions} liveNotifications={liveNotifications} />;
-    if (screen === "income") return <Income authUser={authUser} liveIncome={liveIncome} draft={incomeDraft} setDraft={setIncomeDraft} addIncome={addIncome} sessionError={sessionError} />;
-    if (screen === "expenses") return <Expenses state={state} authUser={authUser} liveExpenses={liveExpenses} draft={expenseDraft} setDraft={setExpenseDraft} addExpense={addExpense} sessionError={sessionError} />;
+    if (screen === "income") return <Income authUser={authUser} liveIncome={liveIncome} draft={incomeDraft} setDraft={setIncomeDraft} addIncome={addIncome} deleteIncome={deleteIncome} editIncome={editIncome} editingIncomeId={editingIncomeId} cancelEdit={() => { setEditingIncomeId(null); setIncomeDraft({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true }); }} sessionError={sessionError} />;
+    if (screen === "expenses") return <Expenses state={state} authUser={authUser} liveExpenses={liveExpenses} draft={expenseDraft} setDraft={setExpenseDraft} addExpense={addExpense} deleteExpense={deleteExpense} editExpense={editExpense} editingExpenseId={editingExpenseId} cancelEdit={() => { setEditingExpenseId(null); setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false }); }} sessionError={sessionError} />;
     if (screen === "tasks") return <Tasks state={state} authUser={authUser} backendUser={backendUser} householdMembers={householdMembers} householdInvites={householdInvites} liveTasks={liveTasks} draft={taskDraft} setDraft={setTaskDraft} addTask={addTask} toggleTask={toggleTask} sessionError={sessionError} />;
     if (screen === "analytics") return <Analytics state={state} summary={authUser ? liveSummary : summary} authUser={authUser} liveExpenses={liveExpenses} />;
     if (screen === "subscriptions") return <Subscriptions state={state} authUser={authUser} liveSubscriptions={liveSubscriptions} draft={subscriptionDraft} setDraft={setSubscriptionDraft} addSubscription={addSubscription} sessionError={sessionError} />;
@@ -744,7 +810,7 @@ function Dashboard({ state, summary, authUser, liveExpenses, liveSubscriptions, 
   );
 }
 
-function Income({ authUser, liveIncome, draft, setDraft, addIncome, sessionError }) {
+function Income({ authUser, liveIncome, draft, setDraft, addIncome, deleteIncome, editIncome, editingIncomeId, cancelEdit, sessionError }) {
   return (
     <View>
       <SectionTitle eyebrow="Income tracking" title="Add income" />
@@ -755,17 +821,18 @@ function Income({ authUser, liveIncome, draft, setDraft, addIncome, sessionError
         <Field label="Received date" value={draft.receivedAt} onChangeText={(receivedAt) => setDraft({ ...draft, receivedAt })} />
         <ToggleRow title="Recurring income" detail="Salary, retainer, pension, or repeating source" value={draft.isRecurring} onChange={(isRecurring) => setDraft({ ...draft, isRecurring })} />
         <Field label="Note" value={draft.note} onChangeText={(note) => setDraft({ ...draft, note })} />
-        <TouchableOpacity style={styles.primary} onPress={addIncome}><Text style={styles.primaryText}>Add income</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.primary} onPress={addIncome}><Text style={styles.primaryText}>{editingIncomeId ? "Save income" : "Add income"}</Text></TouchableOpacity>
+        {editingIncomeId ? <TouchableOpacity style={styles.secondaryButton} onPress={cancelEdit}><Text style={styles.secondaryText}>Cancel edit</Text></TouchableOpacity> : null}
         {sessionError ? <Text style={styles.errorText}>{sessionError}</Text> : null}
       </Card>
       {liveIncome.map((item) => (
-        <ListRow key={item.id} title={item.source} detail={`${item.received_at || ""} - ${item.is_recurring ? "recurring" : "one-time"} - ${item.note || item.created_by_name || "Income"}`} side={fromCents(item.amount_cents)} />
+        <EditableListRow key={item.id} title={item.source} detail={`${item.received_at || ""} - ${item.is_recurring ? "recurring" : "one-time"} - ${item.note || item.created_by_name || "Income"}`} side={fromCents(item.amount_cents)} onEdit={() => editIncome(item)} onDelete={() => deleteIncome(item.id)} />
       ))}
     </View>
   );
 }
 
-function Expenses({ state, authUser, liveExpenses, draft, setDraft, addExpense, sessionError }) {
+function Expenses({ state, authUser, liveExpenses, draft, setDraft, addExpense, deleteExpense, editExpense, editingExpenseId, cancelEdit, sessionError }) {
   const rows = authUser ? liveExpenses : state.expenses;
   return (
     <View>
@@ -779,11 +846,16 @@ function Expenses({ state, authUser, liveExpenses, draft, setDraft, addExpense, 
         <ChoiceRow options={["personal", "shared", "split"]} value={draft.scope} onChange={(scope) => setDraft({ ...draft, scope })} />
         <ToggleRow title="Private expense" detail="Hide from linked users without private permission" value={draft.isPrivate} onChange={(isPrivate) => setDraft({ ...draft, isPrivate })} />
         <Field label="Note" value={draft.note} onChangeText={(note) => setDraft({ ...draft, note })} />
-        <TouchableOpacity style={styles.primary} onPress={addExpense}><Text style={styles.primaryText}>Add expense</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.primary} onPress={addExpense}><Text style={styles.primaryText}>{editingExpenseId ? "Save expense" : "Add expense"}</Text></TouchableOpacity>
+        {editingExpenseId ? <TouchableOpacity style={styles.secondaryButton} onPress={cancelEdit}><Text style={styles.secondaryText}>Cancel edit</Text></TouchableOpacity> : null}
         {sessionError ? <Text style={styles.errorText}>{sessionError}</Text> : null}
       </Card>
       {rows.map((item) => (
-        <ListRow key={item.id} title={item.note || item.category} detail={authUser ? `${item.spent_at || ""} - ${item.category} - ${item.scope} - ${item.payment_method || "Method"} - ${item.created_by_name || "You"}` : `${item.date} - ${item.category} - ${item.scope} - ${item.method} - ${state.users[item.userId]?.name}`} side={authUser ? fromCents(item.amount_cents) : money(item.amount)} />
+        authUser ? (
+          <EditableListRow key={item.id} title={item.note || item.category} detail={`${item.spent_at || ""} - ${item.category} - ${item.scope} - ${item.payment_method || "Method"} - ${item.created_by_name || "You"}`} side={fromCents(item.amount_cents)} onEdit={() => editExpense(item)} onDelete={() => deleteExpense(item.id)} />
+        ) : (
+          <ListRow key={item.id} title={item.note || item.category} detail={`${item.date} - ${item.category} - ${item.scope} - ${item.method} - ${state.users[item.userId]?.name}`} side={money(item.amount)} />
+        )
       ))}
     </View>
   );
@@ -1289,6 +1361,26 @@ function ListRow({ title, detail, side }) {
   );
 }
 
+function EditableListRow({ title, detail, side, onEdit, onDelete }) {
+  return (
+    <View style={styles.listRow}>
+      <View style={styles.listBody}>
+        <Text style={styles.listTitle}>{title}</Text>
+        <Text style={styles.listDetail}>{detail}</Text>
+        <View style={styles.rowActions}>
+          <TouchableOpacity style={styles.rowActionButton} onPress={onEdit}>
+            <Text style={styles.rowActionText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.rowDangerButton} onPress={onDelete}>
+            <Text style={styles.rowDangerText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      <Text style={styles.side}>{side}</Text>
+    </View>
+  );
+}
+
 function Insight({ title, body }) {
   return (
     <View style={styles.insight}>
@@ -1360,6 +1452,11 @@ const styles = StyleSheet.create({
   listTitle: { fontSize: 16, fontWeight: "900", color: "#16201c", marginBottom: 3 },
   listDetail: { color: "#66736d", lineHeight: 20 },
   side: { color: "#16201c", fontWeight: "900" },
+  rowActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  rowActionButton: { minHeight: 32, borderRadius: 8, backgroundColor: "#eef3f0", paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
+  rowActionText: { color: "#16201c", fontWeight: "900", fontSize: 12 },
+  rowDangerButton: { minHeight: 32, borderRadius: 8, backgroundColor: "#f8ded8", paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
+  rowDangerText: { color: "#a83d2f", fontWeight: "900", fontSize: 12 },
   switchTrack: { width: 50, height: 30, borderRadius: 15, padding: 3, backgroundColor: "#dce4df", justifyContent: "center" },
   switchTrackOn: { backgroundColor: "#176f55" },
   switchThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff" },

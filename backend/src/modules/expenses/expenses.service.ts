@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuthUser } from "../../common/http";
 import { DatabaseService } from "../database/database.service";
 import { HouseholdsService } from "../households/households.service";
@@ -14,6 +14,8 @@ export type CreateExpenseInput = {
   isPrivate?: boolean;
   splits?: { userId: string; shareCents: number }[];
 };
+
+export type UpdateExpenseInput = Partial<CreateExpenseInput>;
 
 @Injectable()
 export class ExpensesService {
@@ -71,5 +73,49 @@ export class ExpensesService {
 
       return expense.rows[0];
     });
+  }
+
+  async update(auth: AuthUser, householdId: string, expenseId: string, input: UpdateExpenseInput) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      `
+        update expenses
+        set category = coalesce($4, category),
+            amount_cents = coalesce($5, amount_cents),
+            currency = coalesce($6, currency),
+            spent_at = coalesce($7, spent_at),
+            note = coalesce($8, note),
+            payment_method = coalesce($9, payment_method),
+            scope = coalesce($10, scope),
+            is_private = coalesce($11, is_private)
+        where id = $1 and household_id = $2 and created_by = $3
+        returning *
+      `,
+      [
+        expenseId,
+        householdId,
+        user.id,
+        input.category,
+        input.amountCents,
+        input.currency,
+        input.spentAt,
+        input.note,
+        input.paymentMethod,
+        input.scope,
+        input.isPrivate
+      ]
+    );
+    if (!result.rows[0]) throw new NotFoundException("Expense not found");
+    return result.rows[0];
+  }
+
+  async delete(auth: AuthUser, householdId: string, expenseId: string) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      "delete from expenses where id = $1 and household_id = $2 and created_by = $3 returning id",
+      [expenseId, householdId, user.id]
+    );
+    if (!result.rows[0]) throw new NotFoundException("Expense not found");
+    return { id: result.rows[0].id };
   }
 }
