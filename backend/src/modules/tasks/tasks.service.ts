@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuthUser } from "../../common/http";
 import { DatabaseService } from "../database/database.service";
 import { HouseholdsService } from "../households/households.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 type CreateTaskInput = {
   assigneeId: string;
@@ -18,7 +19,8 @@ type UpdateTaskInput = Partial<CreateTaskInput> & {
 export class TasksService {
   constructor(
     private readonly db: DatabaseService,
-    private readonly households: HouseholdsService
+    private readonly households: HouseholdsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async list(auth: AuthUser, householdId: string) {
@@ -47,6 +49,16 @@ export class TasksService {
       `,
       [householdId, user.id, input.assigneeId, input.title, input.dueDate || null, input.priority, input.notes || null]
     );
+    if (input.assigneeId !== user.id) {
+      await this.notifications.notifyUser(
+        householdId,
+        input.assigneeId,
+        "assigned_task",
+        "New money task assigned",
+        `${user.display_name || "A household member"} assigned: ${input.title}`,
+        "kinledger://tasks"
+      );
+    }
     return result.rows[0];
   }
 

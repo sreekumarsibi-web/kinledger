@@ -135,6 +135,19 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     return result.rows[0] || null;
   }
 
+  async notifyUser(householdId: string, userId: string, type: ReminderRuleInput["ruleType"], title: string, body: string, deepLink: string) {
+    const notification = await this.db.query(
+      `
+        insert into notifications (household_id, user_id, type, title, body, deep_link, scheduled_for, sent_at)
+        values ($1, $2, $3, $4, $5, $6, now(), now())
+        returning *
+      `,
+      [householdId, userId, type, title, body, deepLink]
+    );
+    await this.sendToUserDevices(userId, title, body);
+    return notification.rows[0];
+  }
+
   async processDueReminders() {
     const dueRules = await this.db.query<{
       id: string;
@@ -148,14 +161,14 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         from reminder_rules
         where enabled = true
           and local_time is not null
-          and date_trunc('minute', local_time::time) = date_trunc('minute', now()::time)
+          and to_char(local_time::time, 'HH24:MI') = to_char(now() at time zone coalesce(likely_free_window->>'timeZone', 'UTC'), 'HH24:MI')
           and not exists (
             select 1
             from notifications n
             where n.household_id = reminder_rules.household_id
               and n.user_id = reminder_rules.user_id
               and n.type = reminder_rules.rule_type
-              and n.created_at::date = now()::date
+              and (n.created_at at time zone coalesce(reminder_rules.likely_free_window->>'timeZone', 'UTC'))::date = (now() at time zone coalesce(reminder_rules.likely_free_window->>'timeZone', 'UTC'))::date
           )
         limit 100
       `
@@ -168,14 +181,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
   private async createAndSendReminder(householdId: string, userId: string, ruleType: ReminderRuleInput["ruleType"]) {
     const copy = this.reminderCopy(ruleType);
-    const notification = await this.db.query(
-      `
-        insert into notifications (household_id, user_id, type, title, body, deep_link, scheduled_for, sent_at)
-        values ($1, $2, $3, $4, $5, $6, now(), now())
-        returning *
-      `,
-      [householdId, userId, ruleType, copy.title, copy.body, copy.deepLink]
-    );
+    return this.notifyUser(householdId, userId, ruleType, copy.title, copy.body, copy.deepLink);
+  }
+
+  private async sendToUserDevices(userId: string, title: string, body: string) {
     const tokens = await this.db.query<{ token: string; provider: string }>(
       "select token, provider from device_tokens where user_id = $1 and is_active = true order by last_seen_at desc limit 5",
       [userId]
@@ -183,11 +192,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
 
     for (const row of tokens.rows) {
       if (row.provider === "expo") {
-        await this.sendExpo(row.token, copy.title, copy.body);
+        await this.sendExpo(row.token, title, body);
       }
     }
-
-    return notification.rows[0];
   }
 
   private reminderCopy(ruleType: ReminderRuleInput["ruleType"]) {

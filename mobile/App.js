@@ -39,6 +39,10 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function deviceTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
 function toCents(value) {
   return Math.round(Number(value || 0) * 100);
 }
@@ -617,7 +621,8 @@ export default function App() {
       await api.saveReminderRule(activeHouseholdId, {
         ruleType: reminderRuleMap[ruleType] || ruleType,
         enabled,
-        localTime
+        localTime,
+        likelyFreeWindow: { timeZone: deviceTimeZone() }
       }).then((rule) => {
         if (rule) {
           setLiveReminderRules((current) => [rule, ...current.filter((item) => item.rule_type !== rule.rule_type)]);
@@ -644,7 +649,8 @@ export default function App() {
         const rule = await api.saveReminderRule(activeHouseholdId, {
           ruleType: reminderRuleMap[ruleType] || ruleType,
           enabled: true,
-          localTime
+          localTime,
+          likelyFreeWindow: { timeZone: deviceTimeZone() }
         });
         if (rule) saved.push(rule);
       }
@@ -672,7 +678,7 @@ export default function App() {
         provider: "expo",
         token,
         platform: "expo",
-        deviceName: "KinLedger mobile"
+        deviceName: `KinLedger mobile (${deviceTimeZone()})`
       });
       setPushTokenPreview(`${token.slice(0, 18)}...`);
       setPushStatus("Push device registered");
