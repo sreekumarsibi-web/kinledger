@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import { parseBody, uuidSchema } from "../../common/http";
 import { AuthenticatedRequest, FirebaseAuthGuard } from "../auth/firebase-auth.guard";
@@ -10,6 +10,9 @@ const createTaskSchema = z.object({
   dueDate: z.string().date().optional(),
   priority: z.enum(["low", "medium", "high"]),
   notes: z.string().max(500).optional()
+});
+const updateTaskSchema = createTaskSchema.partial().extend({
+  status: z.enum(["pending", "completed", "missed"]).optional()
 });
 
 @Controller("households/:householdId/tasks")
@@ -30,5 +33,15 @@ export class TasksController {
   @Patch(":taskId/complete")
   complete(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("taskId") taskId: string) {
     return this.tasks.complete(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, taskId));
+  }
+
+  @Patch(":taskId")
+  update(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("taskId") taskId: string, @Body() body: unknown) {
+    return this.tasks.update(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, taskId), parseBody(updateTaskSchema, body));
+  }
+
+  @Delete(":taskId")
+  delete(@Req() request: AuthenticatedRequest, @Param("householdId") householdId: string, @Param("taskId") taskId: string) {
+    return this.tasks.delete(request.user, parseBody(uuidSchema, householdId), parseBody(uuidSchema, taskId));
   }
 }

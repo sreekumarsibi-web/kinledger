@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { AuthUser } from "../../common/http";
 import { DatabaseService } from "../database/database.service";
 import { HouseholdsService } from "../households/households.service";
@@ -9,6 +9,9 @@ type CreateTaskInput = {
   dueDate?: string;
   priority: "low" | "medium" | "high";
   notes?: string;
+};
+type UpdateTaskInput = Partial<CreateTaskInput> & {
+  status?: "pending" | "completed" | "missed";
 };
 
 @Injectable()
@@ -54,5 +57,50 @@ export class TasksService {
       [householdId, taskId]
     );
     return result.rows[0];
+  }
+
+  async update(auth: AuthUser, householdId: string, taskId: string, input: UpdateTaskInput) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      `
+        update tasks
+        set assignee_id = coalesce($4, assignee_id),
+            title = coalesce($5, title),
+            due_date = coalesce($6, due_date),
+            priority = coalesce($7, priority),
+            notes = coalesce($8, notes),
+            status = coalesce($9, status),
+            completed_at = case
+              when $9 = 'completed' and completed_at is null then now()
+              when $9 = 'pending' then null
+              else completed_at
+            end
+        where id = $1 and household_id = $2 and created_by = $3
+        returning *
+      `,
+      [
+        taskId,
+        householdId,
+        user.id,
+        input.assigneeId,
+        input.title,
+        input.dueDate,
+        input.priority,
+        input.notes,
+        input.status
+      ]
+    );
+    if (!result.rows[0]) throw new NotFoundException("Task not found");
+    return result.rows[0];
+  }
+
+  async delete(auth: AuthUser, householdId: string, taskId: string) {
+    const { user } = await this.households.assertMember(auth, householdId);
+    const result = await this.db.query(
+      "delete from tasks where id = $1 and household_id = $2 and created_by = $3 returning id",
+      [taskId, householdId, user.id]
+    );
+    if (!result.rows[0]) throw new NotFoundException("Task not found");
+    return { id: result.rows[0].id };
   }
 }
