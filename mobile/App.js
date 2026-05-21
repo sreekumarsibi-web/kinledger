@@ -107,7 +107,7 @@ export default function App() {
   const [incomingInviteToken, setIncomingInviteToken] = useState("");
   const [inviteAcceptStatus, setInviteAcceptStatus] = useState("");
   const [incomeDraft, setIncomeDraft] = useState({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true });
-  const [expenseDraft, setExpenseDraft] = useState({ amount: "", category: "Food", scope: "shared", note: "", method: "Card", isPrivate: false });
+  const [expenseDraft, setExpenseDraft] = useState({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
   const [taskDraft, setTaskDraft] = useState({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" });
   const [subscriptionDraft, setSubscriptionDraft] = useState({ name: "", cost: "", billingCycle: "monthly", renewalDate: "2026-06-01" });
   const [goalDraft, setGoalDraft] = useState({ name: "Emergency fund", target: "", saved: "", targetMonth: "2026-12" });
@@ -350,7 +350,7 @@ export default function App() {
         const createdExpense = await api.createExpense(activeHouseholdId, {
           amountCents: toCents(expenseDraft.amount),
           category: expenseDraft.category,
-          spentAt: todayDate(),
+          spentAt: expenseDraft.spentAt || todayDate(),
           note: expenseDraft.note || expenseDraft.category,
           paymentMethod: expenseDraft.method,
           scope: expenseDraft.scope,
@@ -362,7 +362,7 @@ export default function App() {
             created_by_name: backendUser?.display_name || authUser.email || "You"
           }, ...current]);
         }
-        setExpenseDraft({ amount: "", category: "Food", scope: "shared", note: "", method: "Card", isPrivate: false });
+        setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
         refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
       } catch (error) {
         setSessionError(error.message);
@@ -376,7 +376,7 @@ export default function App() {
         id: `exp-${Date.now()}`,
         amount: Number(expenseDraft.amount),
         category: expenseDraft.category,
-        date: "2026-05-18",
+        date: expenseDraft.spentAt || todayDate(),
         method: expenseDraft.method,
         scope: expenseDraft.scope,
         isPrivate: expenseDraft.isPrivate,
@@ -384,7 +384,7 @@ export default function App() {
         userId: current.activeUserId
       }, ...current.expenses]
     }));
-    setExpenseDraft({ amount: "", category: "Food", scope: "shared", note: "", method: "Card", isPrivate: false });
+    setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
   }
 
   async function addTask() {
@@ -772,7 +772,10 @@ function Expenses({ state, authUser, liveExpenses, draft, setDraft, addExpense, 
       <SectionTitle eyebrow="Expense tracking" title="Add expense" />
       <Card>
         <Field label="Amount" value={draft.amount} onChangeText={(amount) => setDraft({ ...draft, amount })} keyboardType="numeric" />
+        <QuickAmountRow values={["5", "10", "25", "50", "100"]} onSelect={(amount) => setDraft({ ...draft, amount })} />
         <ChoiceRow options={categories.slice(0, 5)} value={draft.category} onChange={(category) => setDraft({ ...draft, category })} />
+        <Field label="Spent date" value={draft.spentAt} onChangeText={(spentAt) => setDraft({ ...draft, spentAt })} />
+        <Field label="Payment method" value={draft.method} onChangeText={(method) => setDraft({ ...draft, method })} />
         <ChoiceRow options={["personal", "shared", "split"]} value={draft.scope} onChange={(scope) => setDraft({ ...draft, scope })} />
         <ToggleRow title="Private expense" detail="Hide from linked users without private permission" value={draft.isPrivate} onChange={(isPrivate) => setDraft({ ...draft, isPrivate })} />
         <Field label="Note" value={draft.note} onChangeText={(note) => setDraft({ ...draft, note })} />
@@ -780,7 +783,19 @@ function Expenses({ state, authUser, liveExpenses, draft, setDraft, addExpense, 
         {sessionError ? <Text style={styles.errorText}>{sessionError}</Text> : null}
       </Card>
       {rows.map((item) => (
-        <ListRow key={item.id} title={item.note || item.category} detail={authUser ? `${item.category} - ${item.scope} - ${item.created_by_name || "You"}` : `${item.category} - ${item.scope} - ${state.users[item.userId]?.name}`} side={authUser ? fromCents(item.amount_cents) : money(item.amount)} />
+        <ListRow key={item.id} title={item.note || item.category} detail={authUser ? `${item.spent_at || ""} - ${item.category} - ${item.scope} - ${item.payment_method || "Method"} - ${item.created_by_name || "You"}` : `${item.date} - ${item.category} - ${item.scope} - ${item.method} - ${state.users[item.userId]?.name}`} side={authUser ? fromCents(item.amount_cents) : money(item.amount)} />
+      ))}
+    </View>
+  );
+}
+
+function QuickAmountRow({ values, onSelect }) {
+  return (
+    <View style={styles.quickRow}>
+      {values.map((value) => (
+        <TouchableOpacity key={value} style={styles.quickButton} onPress={() => onSelect(value)}>
+          <Text style={styles.quickText}>{money(Number(value))}</Text>
+        </TouchableOpacity>
       ))}
     </View>
   );
@@ -1331,6 +1346,9 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   smallButton: { minHeight: 38, borderRadius: 8, backgroundColor: "#fff", paddingHorizontal: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#efd18f" },
   smallButtonText: { color: "#16201c", fontWeight: "900" },
+  quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  quickButton: { minHeight: 36, borderRadius: 8, backgroundColor: "#eef3f0", paddingHorizontal: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#dce4df" },
+  quickText: { color: "#16201c", fontWeight: "900" },
   choiceRow: { gap: 8, paddingBottom: 12 },
   choice: { minHeight: 40, borderRadius: 8, borderWidth: 1, borderColor: "#dce4df", backgroundColor: "#fff", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   choiceActive: { backgroundColor: "#16372d" },
