@@ -115,7 +115,7 @@ export default function App() {
   const [editingIncomeId, setEditingIncomeId] = useState(null);
   const [expenseDraft, setExpenseDraft] = useState({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false });
   const [editingExpenseId, setEditingExpenseId] = useState(null);
-  const [taskDraft, setTaskDraft] = useState({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" });
+  const [taskDraft, setTaskDraft] = useState({ title: "", assignee: "self", due: "2026-05-20", remindAt: "", priority: "Medium", status: "Pending", notes: "" });
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [subscriptionDraft, setSubscriptionDraft] = useState({ name: "", cost: "", billingCycle: "monthly", renewalDate: "2026-06-01" });
   const [goalDraft, setGoalDraft] = useState({ name: "Emergency fund", target: "", saved: "", targetMonth: "2026-12" });
@@ -471,8 +471,10 @@ export default function App() {
           assigneeId: taskDraft.assignee === "self" ? backendUser.id : taskDraft.assignee,
           title: taskDraft.title,
           dueDate: taskDraft.due || undefined,
+          reminderAt: taskDraft.remindAt || undefined,
           priority: taskDraft.priority.toLowerCase(),
-          notes: taskDraft.notes || undefined
+          notes: taskDraft.notes || undefined,
+          status: taskDraft.status.toLowerCase()
         };
         const savedTask = editingTaskId
           ? await api.updateTask(activeHouseholdId, editingTaskId, payload)
@@ -481,7 +483,7 @@ export default function App() {
           setLiveTasks((current) => editingTaskId ? current.map((task) => task.id === editingTaskId ? savedTask : task) : [savedTask, ...current]);
         }
         setEditingTaskId(null);
-        setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" });
+        setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", remindAt: "", priority: "Medium", status: "Pending", notes: "" });
         refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
       } catch (error) {
         setSessionError(error.message);
@@ -497,12 +499,14 @@ export default function App() {
         assignee: taskDraft.assignee,
         createdBy: current.activeUserId,
         due: taskDraft.due,
+        remindAt: taskDraft.remindAt,
         priority: taskDraft.priority,
+        status: taskDraft.status.toLowerCase(),
         notes: taskDraft.notes,
-        completed: false
+        completed: taskDraft.status === "Completed"
       }, ...current.tasks]
     }));
-    setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" });
+    setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", remindAt: "", priority: "Medium", status: "Pending", notes: "" });
   }
 
   function editTask(task) {
@@ -511,7 +515,9 @@ export default function App() {
       title: task.title || "",
       assignee: task.assignee_id === backendUser?.id ? "self" : task.assignee_id,
       due: task.due_date || task.due || "2026-05-20",
+      remindAt: task.reminder_at || task.remindAt || "",
       priority: `${(task.priority || "medium")[0].toUpperCase()}${(task.priority || "medium").slice(1)}`,
+      status: task.status === "completed" || task.completed ? "Completed" : "Pending",
       notes: task.notes || ""
     });
   }
@@ -524,7 +530,7 @@ export default function App() {
       setLiveTasks((current) => current.filter((task) => task.id !== taskId));
       if (editingTaskId === taskId) {
         setEditingTaskId(null);
-        setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" });
+        setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", remindAt: "", priority: "Medium", status: "Pending", notes: "" });
       }
       refreshHouseholdData(activeHouseholdId).catch((error) => setSessionError(error.message));
     } catch (error) {
@@ -794,7 +800,7 @@ export default function App() {
     if (screen === "dashboard") return <Dashboard state={state} summary={authUser ? liveSummary : summary} authUser={authUser} liveExpenses={liveExpenses} liveSubscriptions={liveSubscriptions} liveNotifications={liveNotifications} />;
     if (screen === "income") return <Income authUser={authUser} liveIncome={liveIncome} draft={incomeDraft} setDraft={setIncomeDraft} addIncome={addIncome} deleteIncome={deleteIncome} editIncome={editIncome} editingIncomeId={editingIncomeId} cancelEdit={() => { setEditingIncomeId(null); setIncomeDraft({ source: "Salary", amount: "", receivedAt: todayDate(), note: "", isRecurring: true }); }} sessionError={sessionError} />;
     if (screen === "expenses") return <Expenses state={state} authUser={authUser} liveExpenses={liveExpenses} draft={expenseDraft} setDraft={setExpenseDraft} addExpense={addExpense} deleteExpense={deleteExpense} editExpense={editExpense} editingExpenseId={editingExpenseId} cancelEdit={() => { setEditingExpenseId(null); setExpenseDraft({ amount: "", category: "Food", spentAt: todayDate(), scope: "shared", note: "", method: "Card", isPrivate: false }); }} sessionError={sessionError} />;
-    if (screen === "tasks") return <Tasks state={state} authUser={authUser} backendUser={backendUser} householdMembers={householdMembers} householdInvites={householdInvites} liveTasks={liveTasks} draft={taskDraft} setDraft={setTaskDraft} addTask={addTask} editTask={editTask} deleteTask={deleteTask} editingTaskId={editingTaskId} cancelEdit={() => { setEditingTaskId(null); setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", priority: "Medium", notes: "" }); }} toggleTask={toggleTask} sessionError={sessionError} />;
+    if (screen === "tasks") return <Tasks state={state} authUser={authUser} backendUser={backendUser} householdMembers={householdMembers} householdInvites={householdInvites} liveTasks={liveTasks} draft={taskDraft} setDraft={setTaskDraft} addTask={addTask} editTask={editTask} deleteTask={deleteTask} editingTaskId={editingTaskId} cancelEdit={() => { setEditingTaskId(null); setTaskDraft({ title: "", assignee: "self", due: "2026-05-20", remindAt: "", priority: "Medium", status: "Pending", notes: "" }); }} toggleTask={toggleTask} sessionError={sessionError} />;
     if (screen === "analytics") return <Analytics state={state} summary={authUser ? liveSummary : summary} authUser={authUser} liveExpenses={liveExpenses} />;
     if (screen === "subscriptions") return <Subscriptions state={state} authUser={authUser} liveSubscriptions={liveSubscriptions} draft={subscriptionDraft} setDraft={setSubscriptionDraft} addSubscription={addSubscription} sessionError={sessionError} />;
     if (screen === "goals") return <Goals state={state} authUser={authUser} liveGoals={liveGoals} draft={goalDraft} setDraft={setGoalDraft} addGoal={addGoal} sessionError={sessionError} />;
@@ -988,7 +994,9 @@ function Tasks({ state, authUser, backendUser, householdMembers, householdInvite
         <Field label="Task title" value={draft.title} onChangeText={(title) => setDraft({ ...draft, title })} />
         <ChoiceRow options={assignees.map((item) => item.id)} value={draft.assignee} onChange={(assignee) => setDraft({ ...draft, assignee })} labels={Object.fromEntries(assignees.map((item) => [item.id, { name: item.name }]))} />
         <Field label="Due date" value={draft.due} onChangeText={(due) => setDraft({ ...draft, due })} />
+        <Field label="Remind me at" value={draft.remindAt} onChangeText={(remindAt) => setDraft({ ...draft, remindAt })} placeholder="2026-05-21T18:30:00+03:00" />
         <ChoiceRow options={["Low", "Medium", "High"]} value={draft.priority} onChange={(priority) => setDraft({ ...draft, priority })} />
+        <ChoiceRow options={["Pending", "Completed"]} value={draft.status} onChange={(status) => setDraft({ ...draft, status })} />
         <Field label="Notes" value={draft.notes} onChangeText={(notes) => setDraft({ ...draft, notes })} />
         <TouchableOpacity style={styles.primary} onPress={addTask}><Text style={styles.primaryText}>{editingTaskId ? "Save task" : "Assign task"}</Text></TouchableOpacity>
         {editingTaskId ? <TouchableOpacity style={styles.secondaryButton} onPress={cancelEdit}><Text style={styles.secondaryText}>Cancel edit</Text></TouchableOpacity> : null}
@@ -996,7 +1004,7 @@ function Tasks({ state, authUser, backendUser, householdMembers, householdInvite
       </Card>
       {visibleTasks.map((task) => (
         liveMode ? (
-          <EditableListRow key={task.id} title={task.title} detail={`Due ${task.due_date || "Anytime"} - Assigned to ${task.assignee_name || "Member"} - ${task.notes || "No notes"}`} side={(task.status === "completed" || task.completed) ? "Done" : task.priority} onEdit={() => editTask(task)} onDelete={() => deleteTask(task.id)} onComplete={() => toggleTask(task.id)} />
+          <EditableListRow key={task.id} title={task.title} detail={`Due ${task.due_date || "Anytime"} - Remind ${task.reminder_at || "Off"} - Assigned to ${task.assignee_name || "Member"} - ${task.notes || "No notes"}`} side={(task.status === "completed" || task.completed) ? "Done" : task.priority} onEdit={() => editTask(task)} onDelete={() => deleteTask(task.id)} onComplete={() => toggleTask(task.id)} />
         ) : (
           <TouchableOpacity key={task.id} onPress={() => toggleTask(task.id)}>
             <ListRow title={task.title} detail={`Assigned to ${state.users[task.assignee]?.name} - ${task.notes || "No notes"}`} side={(task.status === "completed" || task.completed) ? "Done" : task.priority} />

@@ -177,6 +177,38 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     for (const rule of dueRules.rows) {
       await this.createAndSendReminder(rule.household_id, rule.user_id, rule.rule_type);
     }
+
+    await this.processDueTaskReminders();
+  }
+
+  private async processDueTaskReminders() {
+    const tasks = await this.db.query<{
+      id: string;
+      household_id: string;
+      assignee_id: string;
+      title: string;
+    }>(
+      `
+        update tasks
+        set reminder_sent_at = now()
+        where status = 'pending'
+          and reminder_at is not null
+          and reminder_sent_at is null
+          and reminder_at <= now()
+        returning id, household_id, assignee_id, title
+      `
+    );
+
+    for (const task of tasks.rows) {
+      await this.notifyUser(
+        task.household_id,
+        task.assignee_id,
+        "assigned_task",
+        "Task reminder",
+        `Reminder: ${task.title}`,
+        "kinledger://tasks"
+      );
+    }
   }
 
   private async createAndSendReminder(householdId: string, userId: string, ruleType: ReminderRuleInput["ruleType"]) {

@@ -145,6 +145,8 @@ create table tasks (
   priority priority_level not null default 'medium',
   notes text,
   status task_status not null default 'pending',
+  reminder_at timestamptz,
+  reminder_sent_at timestamptz,
   completed_at timestamptz,
   created_at timestamptz not null default now()
 );

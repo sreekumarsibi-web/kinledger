@@ -8,10 +8,12 @@ type CreateTaskInput = {
   assigneeId: string;
   title: string;
   dueDate?: string;
+  reminderAt?: string;
   priority: "low" | "medium" | "high";
   notes?: string;
+  status?: "pending" | "completed";
 };
-type UpdateTaskInput = Partial<CreateTaskInput> & {
+type UpdateTaskInput = Partial<Omit<CreateTaskInput, "status">> & {
   status?: "pending" | "completed" | "missed";
 };
 
@@ -43,11 +45,11 @@ export class TasksService {
     const { user } = await this.households.assertMember(auth, householdId);
     const result = await this.db.query(
       `
-        insert into tasks (household_id, created_by, assignee_id, title, due_date, priority, notes)
-        values ($1, $2, $3, $4, $5, $6, $7)
+        insert into tasks (household_id, created_by, assignee_id, title, due_date, priority, notes, status, completed_at, reminder_at)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, case when $8 = 'completed' then now() else null end, $9)
         returning *
       `,
-      [householdId, user.id, input.assigneeId, input.title, input.dueDate || null, input.priority, input.notes || null]
+      [householdId, user.id, input.assigneeId, input.title, input.dueDate || null, input.priority, input.notes || null, input.status || "pending", input.reminderAt || null]
     );
     if (input.assigneeId !== user.id) {
       await this.notifications.notifyUser(
@@ -82,6 +84,8 @@ export class TasksService {
             priority = coalesce($7, priority),
             notes = coalesce($8, notes),
             status = coalesce($9, status),
+            reminder_at = coalesce($10, reminder_at),
+            reminder_sent_at = case when $10 is not null then null else reminder_sent_at end,
             completed_at = case
               when $9 = 'completed' and completed_at is null then now()
               when $9 = 'pending' then null
@@ -99,7 +103,8 @@ export class TasksService {
         input.dueDate,
         input.priority,
         input.notes,
-        input.status
+        input.status,
+        input.reminderAt
       ]
     );
     if (!result.rows[0]) throw new NotFoundException("Task not found");

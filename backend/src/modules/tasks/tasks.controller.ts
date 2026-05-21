@@ -8,8 +8,10 @@ const createTaskSchema = z.object({
   assigneeId: z.string().uuid(),
   title: z.string().min(1).max(180),
   dueDate: z.string().date().optional(),
+  reminderAt: z.string().datetime({ offset: true }).optional(),
   priority: z.enum(["low", "medium", "high"]),
-  notes: z.string().max(500).optional()
+  notes: z.string().max(500).optional(),
+  status: z.enum(["pending", "completed"]).optional()
 });
 const updateTaskSchema = createTaskSchema.partial().extend({
   status: z.enum(["pending", "completed", "missed"]).optional()

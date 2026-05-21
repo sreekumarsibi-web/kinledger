@@ -7,6 +7,7 @@
     "db:setup": "node scripts/setup-db.js",
     "db:migrate:device-tokens": "node scripts/migrate-device-tokens.js",
     "db:migrate:income": "node scripts/migrate-income.js",
+    "db:migrate:task-reminders": "node scripts/migrate-task-reminders.js",
     "start": "node dist/main.js",
     "start:dev": "npm run build && node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
